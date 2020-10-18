@@ -6,6 +6,7 @@
 test_description='Various diff formatting options'
 
 . ./test-lib.sh
+. "$TEST_DIRECTORY"/diff-lib.sh
 
 test_expect_success setup '
 
@@ -471,6 +472,38 @@ test_expect_success 'diff-tree --stdin with log formatting' '
 	EOF
 	git rev-list master | git diff-tree --stdin --format=%s -s >actual &&
 	test_cmp expect actual
+'
+
+test_expect_success 'diff -I<regex>' '
+	test_seq 50 >I.txt &&
+	sed -e "s/13/ten and three/" -e "/7\$/d" <I.txt >J.txt &&
+	echo >>J.txt &&
+
+	test_expect_code 1 git diff --no-index --ignore-blank-lines -I"ten.*e" -I"^[124-9]" I.txt J.txt >actual &&
+	cat >expect <<-\EOF &&
+	diff --git a/I.txt b/J.txt
+	--- a/I.txt
+	+++ b/J.txt
+	@@ -34,7 +31,6 @@
+	 34
+	 35
+	 36
+	-37
+	 38
+	 39
+	 40
+	EOF
+	compare_diff_patch expect actual &&
+
+	test_expect_code 1 git diff --stat --no-index --ignore-blank-lines -I"ten.*e" -I"^[124-9]" I.txt J.txt >actual &&
+	cat >expect <<-\EOF &&
+	 I.txt => J.txt | 1 -
+	 1 file changed, 1 deletion(-)
+	EOF
+	test_cmp expect actual &&
+
+	test_expect_code 129 git diff --no-index --ignore-matching-lines="^[124-9]" --ignore-matching-lines="^[124-9" I.txt J.txt >output 2>&1 &&
+	test_i18ngrep "invalid regex given to -I: " output
 '
 
 test_done
